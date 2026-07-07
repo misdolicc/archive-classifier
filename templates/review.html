@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>分类移动计划 · 审阅</title>
+<style>
+:root{--bd:#e3e6eb;--mut:#6b7280;--bg:#f6f7f9;--ac:#2563eb;--ok:#16a34a;--warn:#d97706;--red:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#111;background:var(--bg)}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--bd);padding:10px 14px;box-shadow:0 1px 6px rgba(0,0,0,.04)}
+.title{font-size:16px;font-weight:700}
+.stats{margin:6px 0;color:var(--mut);font-size:13px;display:flex;gap:14px;flex-wrap:wrap}
+.stats b{color:#111}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+input,select,button{font:inherit}
+#q{flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--bd);border-radius:8px}
+select{padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+button{padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:#fff;cursor:pointer}
+button:hover{background:#f0f2f5}
+button.danger{color:var(--red);border-color:#f3c9c9}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chips button{border-radius:20px;padding:5px 12px}
+.chips button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.grp{color:var(--mut);display:inline-flex;align-items:center;gap:6px}
+.sp{flex:1}
+.progress{height:6px;background:#eceef1;border-radius:4px;margin-top:8px;overflow:hidden}
+#bar{height:100%;width:0;background:var(--ok);transition:width .2s}
+main{padding:12px 14px 60px}
+.group{margin:0 0 10px;border:1px solid var(--bd);border-radius:10px;background:#fff;overflow:hidden}
+.ghead{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:#fbfcfd;font-weight:600;user-select:none}
+.ghead:hover{background:#f2f5f8}
+.ghead .cnt{color:var(--mut);font-weight:400;font-size:12px}
+.group.collapsed .rows{display:none}
+.caret{transition:transform .15s}.group.collapsed .caret{transform:rotate(-90deg)}
+.row{display:grid;grid-template-columns:34px 1fr 18px minmax(230px,1fr) 60px 70px 34px;gap:8px;align-items:center;padding:5px 12px;border-top:1px solid #f0f2f4}
+.row:hover{background:#fafbfc}.row.rev{background:#f2fbf4}.row.rev:hover{background:#eafaef}
+.row.recls{background:#fff7ed}.row.recls:hover{background:#ffedd5}
+.revb{width:26px;height:26px;border-radius:6px;padding:0;color:#c4c9d0;font-weight:700}
+.row.rev .revb{color:#fff;background:var(--ok);border-color:var(--ok)}
+.src{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src.clk{cursor:pointer}.src.clk:hover .fn{color:var(--ac);text-decoration:underline}
+.src .dir{color:var(--mut)}.src .fn{font-weight:600}
+.arrow{color:#c0c6cf;text-align:center}
+.tgt{width:100%;padding:5px 8px;border:1px solid var(--bd);border-radius:7px;background:#fff}
+.tgt.bad{border-color:var(--red);background:#fff5f5}.tgt.changed{border-color:var(--ac);background:#f3f7ff}
+.fcount{font-size:12px;color:var(--mut);text-align:right}
+.fcount.big{color:var(--red);font-weight:700}
+.badge{font-size:11px;text-align:center}.b-uncertain{color:var(--warn)}
+.reclsc{text-align:center}.reclsc input{cursor:pointer;width:16px;height:16px;margin:0}
+.note{grid-column:2/8;color:var(--warn);font-size:12px;padding:0 2px 4px 0}
+.empty{color:var(--mut);text-align:center;padding:40px}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">📦 分类移动计划 · 审阅（整包为单位）</div>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input id="q" placeholder="🔍 搜索 源单元 / 目标目录 / 备注 …">
+    <select id="cat"></select>
+    <div class="chips" id="chips">
+      <button data-f="all" class="on">全部</button>
+      <button data-f="uncertain">待确认</button>
+      <button data-f="edited">已改目标</button>
+      <button data-f="unreviewed">未审阅</button>
+      <button data-f="reviewed">已审阅</button>
+      <button data-f="big">大包</button>
+      <button data-f="recls">待重分类</button>
+    </div>
+    <span class="sp"></span>
+    <label class="grp">分组
+      <select id="group"><option value="src">按源目录</option><option value="tgt">按目标目录</option></select>
+    </label>
+    <label class="grp">排序
+      <select id="sort"><option value="src">路径</option><option value="count">文件数↓</option></select>
+    </label>
+    <button id="expand">展开/折叠</button>
+    <button id="exp">导出计划(txt)</button>
+    <button id="csv">导出CSV</button>
+    <button id="reclsBtn" title="把勾选“需要重新分类”的条目交给模型重新分类">提交待重分类</button>
+    <button id="reset" class="danger">重置审阅</button>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+</header>
+<main id="list"></main>
+<datalist id="leaves"></datalist>
+<script type="application/json" id="leafData">__LEAVES__</script>
+<script type="application/json" id="unitData">__UNITS__</script>
+<script type="application/json" id="metaData">__META__</script>
+<script>
+// $：document.querySelector 的简写（传入 CSS 选择器，返回第一个匹配的 DOM 元素）。
+// esc：HTML 转义，把 & < > " 替换为对应实体，防止把用户/数据中的特殊字符当成 HTML 标签解析（避免注入）。
+const $=s=>document.querySelector(s), esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// norm：生成用于“匹配比较”的规范化 key —— 分隔符不敏感（\\ 和 / 视为等价）、大小写不敏感（对 Windows 更友好）。
+// 注意：仅用于比较/匹配，界面上展示的仍然是原始值（不做归一化），不影响用户看到的实际路径。
+const norm=s=>(s||'').replace(/\\/g,'/').replace(/\/+$/,'').trim().toLowerCase();
+// topcat：从一个路径（一般是目标叶子路径）中取出最顶层的目录名，用于按“大类”筛选/分组。
+const topcat=s=>(s||'').replace(/\\/g,'/').split('/')[0];
+// 从内嵌的 <script id="leafData"> 标签中解析出目标树的全部合法叶子目录列表（数组）。
+const LEAVES=JSON.parse($('#leafData').textContent);
+// leafSet：叶子目录集合的归一化版本，供 O(1) 判断某个目标路径是否为合法叶子。
+const leafSet=new Set(LEAVES.map(norm));
+// 把叶子目录列表填充进 <datalist>，供目标输入框（.tgt）做自动补全建议。
+$('#leaves').innerHTML=LEAVES.map(l=>`<option value="${esc(l)}">`).join('');
+// 从内嵌数据中解析出本次分类的所有单元（每项形如 {src,leaf,count,status,note}）。
+const ENTRIES=JSON.parse($('#unitData').textContent);  // {src,leaf,count,status,note}
+// 解析元信息：数据集名称 name、源目录根 srcRoot、目标目录根 dstRoot、大包阈值 big。
+const META=JSON.parse($('#metaData').textContent);     // {name,srcRoot,dstRoot,big}
+const BIG=+META.big>0?+META.big:500;                   // "large package" threshold (files)
+// 把“大包”筛选按钮的文字更新为实际阈值，如“大包(>500)”。
+{const b=document.querySelector('[data-f="big"]');if(b)b.textContent='大包(>'+BIG+')';}
+// HAS_BACKEND：判断本页是否是被 review_server.py 用 http(s):// 提供服务打开的
+//（而不是直接双击以 file:// 方式打开）。只有前者才能使用「点击打开源文件」和
+// 「提交待重分类」这两个需要后端配合的功能；后者会自动降级（提示 / 改为下载 JSON）。
+const HAS_BACKEND=location.protocol==='http:'||location.protocol==='https:';
+
+// KEY：localStorage 存储键，按数据集名称（META.name）命名空间隔离，避免同时打开
+// 多个不同数据集的审阅页面时，彼此的本地审阅进度互相覆盖。
+const KEY='plan_review_'+(META.name||'default')+'_v1';
+// ST：本地审阅状态（每个单元的用户修改，如改过的目标 tgt、是否已审阅 rev、
+// 是否勾选待重分类 recls），从 localStorage 恢复，随后每次修改都会持久化回去。
+let ST=JSON.parse(localStorage.getItem(KEY)||'{}');
+// save：把当前本地状态 ST 序列化写回 localStorage，持久化审阅进度。
+const save=()=>localStorage.setItem(KEY,JSON.stringify(ST));
+// effTgt：某单元的“有效目标路径”——用户若手动改过目标（ST 中记录了 tgt），
+// 优先使用用户改的值，否则使用分类结果自带的 leaf。
+const effTgt=e=>{const s=ST[e.src];return(s&&s.tgt!=null)?s.tgt:e.leaf;};
+// isRev：该单元是否已被用户标记为“已审阅”。
+const isRev=e=>!!(ST[e.src]&&ST[e.src].rev);
+// isEdited：该单元的目标是否被用户手动改动过（比较归一化后的用户目标与原始 leaf 是否不同）。
+const isEdited=e=>{const s=ST[e.src];return!!(s&&s.tgt!=null&&norm(s.tgt)!==norm(e.leaf));};
+const REV=e=>e.rev||0;                                  // embedded classification revision
+// isRecls：该单元是否被用户勾选了「需要重新分类」。
+const isRecls=e=>!!(ST[e.src]&&ST[e.src].recls);        // marked "需要重新分类"
+// 状态调解（reconcile）：如果某单元在服务端被重新分类过（reclassify.py 会把它内嵌的
+// rev 版本号加 1），而这个 rev 与我们上次记录本地状态时的 _rev 不一致，说明本地的
+// 审阅/修改记录已经过期——直接丢弃该单元的本地状态，让它显示最新分类结果，
+// 并重新进入“未审阅”状态，提示用户复核。
+for(const _e of ENTRIES){const s=ST[_e.src];if(s&&(s._rev||0)!==REV(_e))delete ST[_e.src];}
+save();
+
+// cats：所有单元当前有效目标的顶层大类去重排序列表，用于填充“全部大类”下拉筛选框。
+const cats=[...new Set(ENTRIES.map(e=>topcat(e.leaf)))].sort();
+$('#cat').innerHTML='<option value="">全部大类</option>'+cats.map(c=>`<option>${esc(c)}</option>`).join('');
+
+// F：当前筛选/分组/排序状态。q=搜索关键字，cat=大类筛选，chip=当前选中的筛选“药丸”按钮，
+// group=分组方式（按源目录/按目标目录），sort=排序方式（按路径/按文件数）。
+const F={q:'',cat:'',chip:'all',group:'src',sort:'src'};
+// openG：记录每个分组的折叠状态（key=分组名，value=是否折叠），跨 render() 调用保持。
+const openG={};
+let SHOWN=[];  // rows currently rendered — lets edits/mark-reviewed refresh stats without a full re-render
+// tgtAffectsView：判断“当前视图的分组/筛选是否依赖某一行的目标路径”——
+// 如果是按目标分组、或按大类筛选、或筛选条件是“已改目标”，那么用户编辑目标后
+// 必须重新渲染（该行可能需要换组/被筛掉）；否则编辑目标只需局部更新，无需整体重渲染。
+const tgtAffectsView=()=>F.group==='tgt'||!!F.cat||F.chip==='edited';
+// match：判断单元 e 是否满足当前的筛选条件 F（大类、状态药丸、搜索关键字）。
+// 各条件之间是“与”的关系，任一条件不满足即返回 false。
+function match(e){
+  if(F.cat&&topcat(effTgt(e))!==F.cat)return false;
+  if(F.chip==='uncertain'&&e.status!=='uncertain')return false;
+  if(F.chip==='edited'&&!isEdited(e))return false;
+  if(F.chip==='unreviewed'&&isRev(e))return false;
+  if(F.chip==='reviewed'&&!isRev(e))return false;
+  if(F.chip==='big'&&e.count<=BIG)return false;
+  if(F.chip==='recls'&&!isRecls(e))return false;
+  if(F.q){const s=(e.src+' '+effTgt(e)+' '+(e.note||'')).toLowerCase();if(!s.includes(F.q))return false;}
+  return true;
+}
+// render：核心渲染函数——根据当前筛选条件筛出要展示的单元，按分组方式分组、
+// 按排序方式排序，然后拼装成分组折叠面板 + 每单元一行的 HTML，整体替换列表容器内容，
+// 最后调用 updateStats() 刷新顶部统计栏与进度条。
+// 注意：本函数会整体重建列表 DOM，因此正在输入中的 <input> 会被销毁（光标丢失）——
+// 所以“编辑目标”等高频操作会避免调用它，只做局部 DOM 更新（见下方 input 监听器）。
+function render(){
+  let rows=ENTRIES.map((e,i)=>({e,i})).filter(o=>match(o.e));
+  if(F.sort==='count')rows.sort((a,b)=>b.e.count-a.e.count);
+  const groups={};
+  for(const o of rows){const e=o.e;
+    let k=F.group==='src'?(e.src.replace(/[\\/][^\\/]*$/,'')||'（根）'):effTgt(e);
+    (groups[k]=groups[k]||[]).push(o);}
+  const keys=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'zh'));
+  const L=$('#list');
+  SHOWN=rows;
+  if(!rows.length){L.innerHTML='<div class="empty">无匹配结果</div>';updateStats();return;}
+  let h='';
+  for(const k of keys){const gs=groups[k];const nf=gs.reduce((s,o)=>s+o.e.count,0);
+    h+=`<div class="group ${openG[k]?'collapsed':''}" data-g="${esc(k)}"><div class="ghead"><span class="caret">▾</span><span>${esc(k)}</span><span class="cnt">· ${gs.length} 单元 / ${nf} 文件</span></div><div class="rows">`;
+    for(const {e,i} of gs){
+      const t=effTgt(e),bad=!leafSet.has(norm(t));
+      const fn=e.src.split(/[\\/]/).pop(),dir=e.src.slice(0,e.src.length-fn.length);
+      h+=`<div class="row ${isRev(e)?'rev':''}${isRecls(e)?' recls':''}" data-i="${i}">
+        <button class="revb" title="标记已审阅">✓</button>
+        <div class="src${HAS_BACKEND?' clk':''}" title="${HAS_BACKEND?'点击只读打开：':''}${esc(e.src)}"><span class="dir">${esc(dir)}</span><span class="fn">${esc(fn)}</span></div>
+        <div class="arrow">→</div>
+        <input class="tgt ${bad?'bad':''} ${isEdited(e)?'changed':''}" list="leaves" value="${esc(t)}" data-i="${i}" title="${esc(t)}">
+        <div class="fcount ${e.count>BIG?'big':''}">${e.count} 文件</div>
+        <div class="badge">${e.status==='uncertain'?'<span class="b-uncertain">待确认</span>':''}</div>
+        <div class="reclsc"><input type="checkbox" class="reclsbox" data-i="${i}" ${isRecls(e)?'checked':''} title="需要重新分类"></div>
+        ${e.note?`<div class="note">${esc(e.note)}</div>`:''}
+      </div>`;
+    }
+    h+='</div></div>';
+  }
+  L.innerHTML=h;updateStats();
+}
+// updateStats：重新计算并刷新页面顶部的统计文字（总单元/文件数、当前显示数量、
+// 待确认/已改/待重分类/非叶子等计数）以及顶部的审阅进度条和“提交待重分类”按钮上的计数。
+function updateStats(){
+  const shown=SHOWN,n=ENTRIES.length,files=ENTRIES.reduce((s,e)=>s+e.count,0),
+    un=ENTRIES.filter(e=>e.status==='uncertain').length,
+    ed=ENTRIES.filter(isEdited).length,rv=ENTRIES.filter(isRev).length,
+    rc=ENTRIES.filter(isRecls).length,
+    bad=ENTRIES.filter(e=>!leafSet.has(norm(effTgt(e)))).length,
+    shownF=shown.reduce((s,o)=>s+o.e.count,0);
+  $('#stats').innerHTML=`共 <b>${n}</b> 单元 / <b>${files.toLocaleString()}</b> 文件 · 显示 <b>${shown.length}</b> 单元(${shownF.toLocaleString()}文件) · 待确认 <b>${un}</b> · 已改 <b>${ed}</b>`+
+    (rc?` · <span style="color:var(--warn)">待重分类 <b>${rc}</b></span>`:'')+
+    (bad?` · <span style="color:var(--red)">非叶子 <b>${bad}</b></span>`:'')+` · 已审 <b>${rv}/${n}</b>`;
+  $('#bar').style.width=(rv/n*100)+'%';
+  const rb=$('#reclsBtn');if(rb)rb.textContent='提交待重分类'+(rc?'('+rc+')':'');
+}
+let qTimer;  // debounce search so typing doesn't re-render the whole list on every keystroke
+// 搜索框输入：120ms 防抖后才更新筛选关键字并重渲染，避免每敲一个字就重建整个列表。
+$('#q').addEventListener('input',e=>{const v=e.target.value.trim().toLowerCase();
+  clearTimeout(qTimer);qTimer=setTimeout(()=>{F.q=v;render();},120);});
+// 大类下拉框变化：更新筛选条件并重渲染。
+$('#cat').addEventListener('change',e=>{F.cat=e.target.value;render();});
+// 分组方式下拉框变化（按源目录 / 按目标目录）：更新分组方式并重渲染。
+$('#group').addEventListener('change',e=>{F.group=e.target.value;render();});
+// 排序方式下拉框变化（按路径 / 按文件数）：更新排序方式并重渲染。
+$('#sort').addEventListener('change',e=>{F.sort=e.target.value;render();});
+// 筛选“药丸”按钮组点击：切换选中样式，更新当前筛选 chip 并重渲染。
+$('#chips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  [...$('#chips').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');F.chip=b.dataset.f;render();});
+// “展开/折叠”按钮：若当前存在任意展开的分组，则全部折叠；否则全部展开（整体切换）。
+$('#expand').addEventListener('click',()=>{const gs=[...document.querySelectorAll('.group')];
+  const anyOpen=gs.some(g=>!g.classList.contains('collapsed'));
+  gs.forEach(g=>{openG[g.dataset.g]=anyOpen;g.classList.toggle('collapsed',anyOpen);});});
+// 列表区域的点击事件（用事件委托统一处理三类点击目标，而不是给每行单独绑定监听器）：
+//   1. 点击分组标题（.ghead）——切换该分组的折叠/展开状态；
+//   2. 点击“标记已审阅”按钮（.revb）——切换该单元的审阅状态，若当前筛选是
+//      “未审阅/已审阅”则该行可能需要被筛掉/筛入，需整体重渲染，否则只刷新统计数字；
+//   3. 点击源路径（.src）——调用 openSrc 请求后端只读打开该源文件/文件夹。
+$('#list').addEventListener('click',e=>{
+  const head=e.target.closest('.ghead');
+  if(head){const g=head.parentElement;g.classList.toggle('collapsed');openG[g.dataset.g]=g.classList.contains('collapsed');return;}
+  const rb=e.target.closest('.revb');
+  if(rb){const row=rb.closest('.row'),e2=ENTRIES[+row.dataset.i];ST[e2.src]=ST[e2.src]||{};ST[e2.src].rev=!ST[e2.src].rev;ST[e2.src]._rev=REV(e2);save();
+    row.classList.toggle('rev',ST[e2.src].rev);
+    // Only re-render if a review filter would now hide/show this row; else just refresh counts.
+    if(F.chip==='unreviewed'||F.chip==='reviewed')render();else updateStats();return;}
+  const sc=e.target.closest('.src');   // click source path -> ask backend to open it read-only
+  if(sc){openSrc(ENTRIES[+sc.closest('.row').dataset.i].src);}
+});
+// 实时编辑目标输入框（.tgt）：只更新本地状态和这一行输入框自身的“非法/已改”样式类，
+// 绝不在这里触发整体 render()——否则正在输入的这个 <input> 会被销毁，
+// 导致光标丢失、自动补全下拉框（datalist）无法弹出。
+$('#list').addEventListener('input',e=>{const inp=e.target.closest('.tgt');if(!inp)return;
+  const en=ENTRIES[+inp.dataset.i],v=inp.value.trim();ST[en.src]=ST[en.src]||{};ST[en.src].tgt=v;ST[en.src]._rev=REV(en);save();
+  inp.classList.toggle('bad',!leafSet.has(norm(v)));inp.classList.toggle('changed',norm(v)!==norm(en.leaf));updateStats();});
+// change 事件（失焦或选择完成后触发，而非每次按键）：
+//   1. “需要重新分类”复选框变化——更新本地状态、该行样式，若当前正筛选“待重分类”则重渲染；
+//   2. 目标输入框的编辑被提交（失焦/从下拉选择）——此时才是安全的时机，若当前视图
+//      的分组/筛选依赖目标路径（tgtAffectsView()），则触发整体重渲染让该行归入正确的组/筛选结果。
+$('#list').addEventListener('change',e=>{
+  const cb=e.target.closest('.reclsbox');   // toggle "需要重新分类"
+  if(cb){const row=cb.closest('.row'),en=ENTRIES[+cb.dataset.i];ST[en.src]=ST[en.src]||{};ST[en.src].recls=cb.checked;ST[en.src]._rev=REV(en);save();
+    row.classList.toggle('recls',cb.checked);updateStats();if(F.chip==='recls')render();return;}
+  // Commit a target edit (blur / pick from datalist): now safe to re-group/re-filter if the view depends on it.
+  if(e.target.closest('.tgt')&&tgtAffectsView())render();});
+// dl：触发浏览器下载——把文本内容包装成 Blob，创建一个临时的 <a download> 链接并模拟点击，
+// 随后释放该临时 URL。用于导出计划 txt / CSV / 重分类队列 JSON。
+function dl(name,text){const b=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+// “导出计划(txt)”按钮：按原计划文本格式（源单元 => 目标叶子 （N 文件）[待确认：原因]）
+// 重新生成文本，使用每个单元的“有效目标”（即包含用户手动修改），下载为 *_已审阅.txt，
+// 这正是 move_plan.py 期望读取的“已审阅”计划文件。
+$('#exp').addEventListener('click',()=>{
+  let out=['源目录根：'+(META.srcRoot||'')+'   目标根：'+(META.dstRoot||'')+'  （整包为单位，审阅导出）',''];
+  for(const e of ENTRIES){let l=e.src+'  =>  '+effTgt(e)+'   （'+e.count+' 文件）';
+    if(e.status==='uncertain'&&e.note)l+='   [待确认：'+e.note+']';out.push(l);}
+  dl((META.name||'plan')+'_文件分类移动计划_已审阅.txt',out.join('\r\n'));});
+// “导出CSV”按钮：把每个单元及其审阅状态（是否已改目标/是否已审阅/目标是否为合法叶子）
+// 导出为 CSV，字段做了双引号转义，便于用 Excel 等工具查看和二次筛选。
+$('#csv').addEventListener('click',()=>{const q=s=>'"'+(s||'').replace(/"/g,'""')+'"';
+  let out=['﻿源单元,目标叶子,文件数,状态,是否已改,是否已审,目标有效'];
+  for(const e of ENTRIES){const t=effTgt(e);
+    out.push([q(e.src),q(t),e.count,q(e.status),q(isEdited(e)?'是':''),q(isRev(e)?'是':''),q(leafSet.has(norm(t))?'是':'否')].join(','));}
+  dl((META.name||'plan')+'_文件分类移动计划.csv',out.join('\r\n'));});
+// “重置审阅”按钮：确认后清空全部本地状态 ST（审阅标记、目标修改、重分类勾选），
+// 只影响浏览器本地存储的审阅进度，不会改动原始计划文件或 units.json。
+$('#reset').addEventListener('click',()=>{if(confirm('清除全部审阅标记、目标修改与重分类勾选？（不影响原计划文件）')){ST={};save();render();}});
+// 功能一：openSrc —— 通过后端只读打开某个源单元（文件/文件夹）。
+// 若当前不是通过 review_server.py 提供服务打开的（HAS_BACKEND 为假），弹窗提示需要后端；
+// 否则请求 GET /open?src=... ，后端负责路径安全校验并用系统默认程序打开。
+function openSrc(src){
+  if(!HAS_BACKEND){alert('“点击打开源文件”需要通过 review_server.py 后端打开本页（http://…），\n当前是以文件方式（file://）打开的。');return;}
+  fetch('/open?src='+encodeURIComponent(src)).then(r=>{if(!r.ok)return r.text().then(t=>alert('打开失败：'+t));}).catch(()=>alert('打开失败：后端未运行？'));
+}
+// 功能二：“提交待重分类”按钮 —— 收集所有勾选了“需要重新分类”的单元。
+// 若有后端（HAS_BACKEND），POST 到 /reclassify-queue，由 reclassify.py 后续读取处理；
+// 否则（纯 file:// 打开）直接下载同样内容的 JSON 文件，用户手动交给 reclassify.py 处理。
+$('#reclsBtn').addEventListener('click',()=>{
+  const items=ENTRIES.filter(isRecls).map(e=>({src:e.src,leaf:effTgt(e),count:e.count,status:e.status,note:e.note||''}));
+  if(!items.length){alert('没有勾选“需要重新分类”的条目。');return;}
+  if(HAS_BACKEND){
+    fetch('/reclassify-queue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(items)})
+      .then(r=>r.json()).then(d=>alert('已提交 '+d.count+' 条待重新分类到后端队列。\n模型重新分类并合并后，刷新本页即可看到更新（勾选与审阅状态会自动重置为待复核）。'))
+      .catch(()=>alert('提交失败：后端未运行？'));
+  }else{
+    dl((META.name||'plan')+'_reclassify_queue.json',JSON.stringify(items,null,0));
+    alert('已导出“待重新分类”清单 JSON，交给模型重新分类后由 reclassify.py 合并回本页。');
+  }
+});
+render();  // 首次渲染：页面加载完成后立即按默认筛选条件（全部）渲染出完整列表。
+</script>
+</body>
+</html>
