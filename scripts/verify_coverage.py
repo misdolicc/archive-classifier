@@ -20,7 +20,7 @@ DST   = "./target-tree"
 def main():
     """入口函数：读取 units.json 并对分类结果做验收检查，打印报告并按结果设置退出码。
 
-    中文说明：
+    说明：
         - 优先使用命令行参数（4 个及以上 ASCII 参数：units_path src dst），否则使用
           脚本顶部 EDIT-ME 区域的常量 UNITS/SRC/DST（CJK 路径应写在这里，因为 Git Bash
           会破坏命令行传入的中文参数）。

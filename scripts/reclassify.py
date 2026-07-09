@@ -33,7 +33,7 @@ _key = lambda s: s.replace("\\", "/").strip("/")
 def load_driver(path):
     """动态加载分类驱动脚本（如 run.py），返回其模块对象，用于复用其中的 classify() 函数。
 
-    中文说明：
+    说明：
         使用 importlib 按文件路径动态导入模块（而非普通 import），这样重分类时
         用的正是第一遍分类时同一个 run.py 里的 classify 逻辑（改进规则后也是
         同一份代码，保证前后两次分类方法一致）。若目标文件没有定义 classify 函数，
@@ -64,7 +64,7 @@ def read_meta(html_path):
 def main():
     """入口函数：对“待重分类队列”中的单元重新分类，合并回 units.json 并重建审阅页面。
 
-    中文说明（对应 SKILL 中描述的往返流程 round-trip）：
+    说明（对应 SKILL 中描述的往返流程 round-trip）：
         1. 校验 HTML 和 units.json 都存在；从 HTML 读取 meta 得到队列文件的默认路径
            "<name>_reclassify_queue.json"（除非 QUEUE 常量另外指定）。
         2. 队列文件不存在则报错退出——需要先在审阅页面勾选“需要重新分类”并提交。

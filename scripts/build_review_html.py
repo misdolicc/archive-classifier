@@ -26,7 +26,7 @@ BIG   = 500                     # "large package" threshold (files) for filter/h
 def main():
     """入口函数：读取 units.json + 目标树叶子列表，把它们注入 HTML 模板，生成审阅页面。
 
-    中文说明：
+    说明：
         - 参数解析：优先使用 5~6 个 ASCII 命令行参数（units src dst out [name] [big]），
           否则回退使用脚本顶部 EDIT-ME 区域的常量（CJK 路径应写在这里）。
         - name 留空时，自动取 src 目录名作为导出文件名前缀 / localStorage 命名空间。

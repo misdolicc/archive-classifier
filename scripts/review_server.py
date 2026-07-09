@@ -24,7 +24,7 @@ PORT = 8765
 def load_meta(html_path):
     """从已生成的审阅 HTML 页面中提取内嵌的 __META__ JSON 数据（name/srcRoot/dstRoot/big）。
 
-    中文说明：
+    说明：
         build_review_html.py 生成页面时会把 meta 信息写进一个
         `<script id="metaData">...</script>` 标签，本函数用正则把该标签内的 JSON
         文本提取出来并解析成字典。找不到该标签时返回空字典 {}。
@@ -42,7 +42,7 @@ def load_meta(html_path):
 def open_readonly(path):
     """用操作系统默认程序只读方式打开一个文件或文件夹（用于“点击源单元查看”功能）。
 
-    中文说明：
+    说明：
         - Windows：调用 os.startfile 打开系统关联的默认查看器；
         - macOS：调用 `open` 命令；
         - 其他（Linux 等）：调用 `xdg-open` 命令。
@@ -58,7 +58,7 @@ def open_readonly(path):
 def make_handler(html_path, src_root, queue_path):
     """构造并返回一个绑定了具体参数（html 路径/源目录根/队列文件路径）的 HTTP 请求处理器类。
 
-    中文说明：
+    说明：
         之所以用一个工厂函数动态构造 Handler 类，是因为 http.server 的
         BaseHTTPRequestHandler 子类在实例化时不方便直接传参，这里通过闭包把
         html_path/src_root/queue_path 三个参数“捕获”进内部类 H 中，
@@ -88,7 +88,7 @@ def make_handler(html_path, src_root, queue_path):
         def do_GET(self):
             """处理 GET 请求，支持三个路径：
 
-            中文说明：
+            说明：
                 - "/" 或 "/index.html"：每次请求都重新读取 html_path 并返回，
                   这样 reclassify.py 重新生成 HTML 后，浏览器刷新即可看到最新内容，
                   无需重启本服务。
@@ -128,7 +128,7 @@ def make_handler(html_path, src_root, queue_path):
         def do_POST(self):
             """处理 POST 请求：仅支持 "/reclassify-queue"，用于接收页面提交的待重分类队列。
 
-            中文说明：
+            说明：
                 页面上勾选“需要重新分类”并点击“提交待重分类”后，会把这些单元的列表
                 以 JSON 数组形式 POST 到这里。本方法读取请求体、校验其确实是一个
                 JSON 数组，然后原样写入 queue_path 文件（覆盖式写入），供
@@ -152,7 +152,7 @@ def make_handler(html_path, src_root, queue_path):
 def main():
     """入口函数：加载 HTML 的 meta 信息，启动本地 HTTP 服务并自动打开浏览器。
 
-    中文说明：
+    说明：
         - 命令行参数（可选）：HTML 路径、端口号；缺省时使用脚本常量 HTML/PORT。
         - 从 HTML 的 __META__ 中读取 srcRoot（源目录根）和 name（数据集名称）；
           若 srcRoot 不是一个存在的目录，只打印警告（/open 功能会因此 404，

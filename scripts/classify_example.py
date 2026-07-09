@@ -28,7 +28,7 @@ BASE = {}   # e.g. {"01_物料手册": 3, "02_行业装备": 3, "05_学习资料
 def eff_depth(parts):
     """返回给定路径分段（parts）所在分支应使用的“单元深度”。
 
-    中文说明：
+    说明：
         由 units_lib.enumerate_units 调用，用于判断某个目录该在哪一层被当作
         一个完整的分类单元（而不是继续往下拆分）。parts 是路径按 "/" 分割后的
         列表，parts[0] 即顶层目录名。默认深度为 2（顶层目录 -> 子目录 即为单元），
@@ -42,7 +42,6 @@ def eff_depth(parts):
         int: 该分支的单元深度。
     """
     top = parts[0]; d = BASE.get(top, 2)
-    # if top == "06_培训资料" and len(parts) > 1 and parts[1] == "Datasheet": d = 3
     return d
 
 # ===== EDIT 3/3 — classifier: ordered keyword rules, first match wins ==========
@@ -50,7 +49,7 @@ def eff_depth(parts):
 def classify(rel):
     """核心分类函数：根据源单元的相对路径 rel，决定它应归入目标树的哪个叶子目录。
 
-    中文说明：
+    说明：
         - 按“先按顶层类目限定范围，再用关键字细化”的方式编写有序规则，第一条
           匹配的规则生效（first match wins）。
         - OK(leaf)：返回确定的分类结果（status="normal"）。

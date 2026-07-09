@@ -8,7 +8,7 @@ The caller supplies two project-specific callables:
   eff_depth(parts) -> int   # unit depth for a path (see enumerate_units)
   classify(rel)    -> (leaf, status, note)   # 'normal' | 'uncertain'
 
-中文说明：本模块是 archive-classifier 的通用工具库，包含与具体项目无关的通用逻辑：
+说明：本模块是 archive-classifier 的通用工具库，包含以下通用逻辑：
     目录遍历（walk）、叶子目录发现（leaf_dirs）、单元枚举（enumerate_units，保证
     整包/整文件夹不被拆散）、文件计数（summarize）、计划文件写出（write_plan/dump_json）、
     以及结果验收（verify）。调用方（各项目的分类驱动脚本 run.py）只需提供两个
@@ -22,7 +22,7 @@ from collections import defaultdict, Counter
 def walk(src):
     """遍历 src 目录，返回该目录下所有子目录与文件的 posix 相对路径。
 
-    中文说明：
+    说明：
         - 使用 os.walk 递归遍历 src 下的所有内容。
         - dirs：所有子目录的相对路径集合（set），路径分隔符统一转换为 posix 风格 "/"。
         - files：所有文件的相对路径列表（list），同样使用 "/" 分隔。
@@ -46,7 +46,7 @@ def walk(src):
 def leaf_dirs(dst):
     """找出 dst（目标分类树）下所有的“叶子目录”（没有子目录的目录），即唯一合法的归档目标。
 
-    中文说明：
+    说明：
         - 叶子目录 = 该目录下不再包含任何子目录（dn 为空列表）。
         - 只有叶子目录才是文件/单元可以放入的合法目标位置，中间节点不允许直接放文件。
         - 返回结果统一使用 posix 分隔符 "/"，并按字母序排序、去重。
@@ -70,7 +70,7 @@ def leaf_dirs(dst):
 def summarize(src):
     """对源目录做一次快速摸底：统计每个顶层条目下的文件总数（子目录递归计入）以及总文件数。
 
-    中文说明：
+    说明：
         - 用于分类前的快速侦察（recon），避免逐文件列出，只按顶层分组统计规模。
         - per_top 按文件数从多到少排序，便于快速看出源目录中“体量集中在哪里”。
 
@@ -94,7 +94,7 @@ def _depth(rel):
 def enumerate_units(src, eff_depth):
     """枚举“覆盖单元”（coverage units），确保每一个文件都恰好归属于一个单元。
 
-    中文说明：
+    说明：
         “单元”是分类的最小整体处理粒度——一个软件包、一个产品资料夹、或一个散落文件，
         整体作为一个单元参与分类，不会被拆散到文件级别（除非它本身就是散落文件）。
 
@@ -146,7 +146,7 @@ def enumerate_units(src, eff_depth):
 def build_rows(units, classify):
     """对每个单元调用 classify() 函数进行分类，生成用于写计划文件/审阅页面的行数据。
 
-    中文说明：
+    说明：
         - classify(src) 由调用方（分类驱动脚本）提供，返回 (leaf, status, note) 三元组：
           leaf 为目标叶子目录，status 为 "normal"（确定）或 "uncertain"（待确认），
           note 为附加说明（不确定的原因等）。
@@ -170,7 +170,7 @@ def build_rows(units, classify):
 def write_plan(rows, path, src_root, dst_root):
     """把分类结果 rows 写成人类可读的移动计划文本文件（*_文件分类移动计划.txt）。
 
-    中文说明：
+    说明：
         文件头两行写明源目录根/目标目录根，以及格式说明；正文每个单元占一行，
         格式为：`源单元  =>  目标叶子   （N 文件）`，若该行 status 为 uncertain，
         则额外追加 `[待确认：原因]` 标记，供人工在审阅阶段重点关注。
@@ -198,7 +198,7 @@ def write_plan(rows, path, src_root, dst_root):
 def verify(rows, src, dst):
     """验收关卡（acceptance gate）：检查分类结果是否完整、合法、无重复。
 
-    中文说明，返回结果中各字段含义：
+    说明，返回结果中各字段含义：
         - total_files / covered_files：源目录实际文件总数 / 计划中各单元文件数之和；
           两者相等（coverage_ok=True）才说明“每个文件都被覆盖、且只被计入一次”。
         - invalid_leaves：计划中出现的、但在目标树中并不是真实叶子目录的目标（非法目标）。

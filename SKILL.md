@@ -18,9 +18,18 @@ move files unless explicitly asked — produce a plan first.
 3. **Package-level granularity for dumps.** Software installs, SDKs, driver/part libraries,
    runtime-data dumps (`.ors/.res/.dll/.bin`, installers, logs), and whole-equipment folders
    move as **one unit** — never explode them file-by-file.
-4. **Flag uncertainty.** Anything that lands on a generic `其他 / Other` leaf, or a category
+4. **Read before guessing, when the name alone is uninformative.** A path/filename that's an
+   opaque code or generic name (and would otherwise fall to `uncertain`/`FALLBACK_LEAF`) is
+   worth opening — use judgment per unit: open a representative file (Read tool; extract text
+   from PDF/Word first if needed) when it would likely resolve the ambiguity, skip it when the
+   parent folder/vendor context already gives enough signal, and skip it for whole software/
+   driver/library dumps (rule 3 — they're one unit regardless of what's inside). This happens
+   inline, by you, while drafting/refining `classify()` in the current session — it is not a
+   separate automated per-file AI pipeline (cost/time do not scale to opening thousands of
+   binaries; see Workflow step 6).
+5. **Flag uncertainty.** Anything that lands on a generic `其他 / Other` leaf, or a category
    with no clean home, gets `status=uncertain` with a short reason for human review.
-5. **Output next to the source or on the project drive**, not a temp dir.
+6. **Output next to the source or on the project drive**, not a temp dir.
 
 ## Workflow
 
@@ -40,8 +49,12 @@ move files unless explicitly asked — produce a plan first.
    its 3 marked sections: paths + `FALLBACK_LEAF`, `eff_depth` (unit depth per top folder), and
    `classify(relpath) -> (leaf, status, note)` — ordered keyword rules, first match wins,
    scoped by top-level category, fall back to `FALLBACK_LEAF` (a **real** catch-all leaf in the
-   target tree, e.g. a `其他`/`Other`/`待归档` folder) with `status="uncertain"`. Run it; it
-   enumerates units + counts, writes the plan + `*_units.json`, and self-verifies coverage.
+   target tree, e.g. a `其他`/`Other`/`待归档` folder) with `status="uncertain"`.
+   Before finalizing rules for units that path/filename alone can't resolve (rule 4), open a
+   representative file yourself (Read tool) to inform the rule or the `note` you leave — this
+   is your judgment call per unit/cluster, done once while authoring `classify()`, not a
+   per-file automated step. Run it; it enumerates units + counts, writes the plan +
+   `*_units.json`, and self-verifies coverage.
 7. **Plan format** (`units_lib.write_plan`): one line per unit
    `源单元  =>  目标叶子   （N 文件）[待确认：原因]`, plus a `*_units.json`
    (`[{src, leaf, count, status, note}]`) that drives the review tool.
