@@ -91,6 +91,66 @@ def _depth(rel):
     return len(rel.split("/"))
 
 
+def preview_depth(src, prefix="", max_depth=4, sample=8):
+    """按【绝对深度】展示某个（子）目录树的结构样本，供人工/Agent 决定 eff_depth 该怎么配置。
+
+    说明：
+        `eff_depth` 现在不该是"拍脑袋给每个顶层文件夹定一个数字"，而应该先看一眼
+        该分支下子目录的真实形状——是所有子分支都整齐划一在同一层，还是有的分支
+        更深/更浅、需要分开配置。本函数就是为了让这一步"看一眼"变得省事：
+        它按深度分层列出 prefix 子树下每一层出现的目录（最多 sample 个样本），
+        并标注每个样本目录是否还有子目录（`has_subdir`），据此可以判断"这一层是不是
+        已经是一个个完整的包/产品"还是"还得再往下一层才对"。
+
+        深度编号与 `eff_depth`/`enumerate_units` 完全一致：顶层条目深度为 1，
+        从 src 根目录数起，与 prefix 无关（prefix 只是用来限定只看某个分支，
+        不改变深度编号的起点）。
+
+        典型用法（分类前，决定某个顶层分支该设几层深度时）：
+            U.preview_depth(SRC, "华为服务器资料")
+            # {2: {"count": 12, "sample": [{"path": "华为服务器资料/交换机CE6857", "has_subdir": False}, ...]},
+            #  3: {"count": 40, "sample": [...]}}
+        如果发现深度 2 的目录大多 has_subdir=False（已经是完整产品包），
+        depth=2 就该是这个分支的单元深度；如果深度 2 的目录几乎都 has_subdir=True
+        （说明下面还分了"资料/驱动/固件"等子类别，产品本身在深度 3），就该设 3。
+        如果同一个顶层分支下不同子分支的形状不一样，`eff_depth(parts)` 可以按
+        `parts[1]`（甚至更深）再细分，不是只能按 `parts[0]` 查一张固定表。
+
+    参数：
+        src (str): 源目录路径。
+        prefix (str): 只看这个子树下的结构（posix 相对路径，如 "华为服务器资料"）；
+            留空则从 src 根目录（深度 1）开始展示整体形状。
+        max_depth (int): 最多展示到第几层深度，避免对超深的树输出过多内容。
+        sample (int): 每一层最多展示几个样本目录（按字母序取前 N 个）。
+    返回：
+        dict[int, dict]: {深度: {"count": 该深度目录总数, "sample": [{"path", "has_subdir"}, ...]}}。
+    """
+    dirs, _ = walk(src)
+    base = prefix.replace("\\", "/").strip("/")
+    dirset = set(dirs)
+
+    def has_subdir(d):
+        pre, dd = d + "/", _depth(d) + 1
+        return any(x.startswith(pre) and _depth(x) == dd for x in dirset)
+
+    by_depth = defaultdict(list)
+    for d in dirs:
+        if base and not (d == base or d.startswith(base + "/")):
+            continue
+        if base and d == base:
+            continue
+        dd = _depth(d)
+        if dd <= max_depth:
+            by_depth[dd].append(d)
+
+    out = {}
+    for dd in sorted(by_depth):
+        ds = sorted(by_depth[dd])
+        out[dd] = {"count": len(ds),
+                    "sample": [{"path": d, "has_subdir": has_subdir(d)} for d in ds[:sample]]}
+    return out
+
+
 def enumerate_units(src, eff_depth):
     """枚举“覆盖单元”（coverage units），确保每一个文件都恰好归属于一个单元。
 

@@ -18,15 +18,24 @@ move files unless explicitly asked — produce a plan first.
 3. **Package-level granularity for dumps.** Software installs, SDKs, driver/part libraries,
    runtime-data dumps (`.ors/.res/.dll/.bin`, installers, logs), and whole-equipment folders
    move as **one unit** — never explode them file-by-file.
-4. **Read before guessing, when the name alone is uninformative.** A path/filename that's an
-   opaque code or generic name (and would otherwise fall to `uncertain`/`FALLBACK_LEAF`) is
-   worth opening — use judgment per unit: open a representative file (Read tool; extract text
-   from PDF/Word first if needed) when it would likely resolve the ambiguity, skip it when the
-   parent folder/vendor context already gives enough signal, and skip it for whole software/
-   driver/library dumps (rule 3 — they're one unit regardless of what's inside). This happens
-   inline, by you, while drafting/refining `classify()` in the current session — it is not a
-   separate automated per-file AI pipeline (cost/time do not scale to opening thousands of
-   binaries; see Workflow step 6).
+4. **Inspect before guessing, whenever structure or naming alone doesn't resolve it.** Two
+   decisions this applies to:
+   (a) **unit depth** (`eff_depth`) — don't assign one depth to an entire top-level branch
+   sight-unseen; sample its real shape first with `units_lib.preview_depth(src, top)` (shows,
+   per depth, sample dirs + whether each still has sub-dirs) and pick the depth where dirs are
+   actually whole, undivided packages. Branches aren't always uniform — `eff_depth(parts)` can
+   key off `parts[1]`/deeper, not just `parts[0]`, when different sub-trees under the same top
+   folder need different depths;
+   (b) **classify() targets** — a path/filename that's an opaque code or generic name (and would
+   otherwise fall to `uncertain`/`FALLBACK_LEAF`) is worth opening — use judgment per unit: open
+   a representative file (Read tool; extract text from PDF/Word first if needed) when it would
+   likely resolve the ambiguity, skip it when the parent folder/vendor context already gives
+   enough signal, and skip it for whole software/driver/library dumps (rule 3 — they're one unit
+   regardless of what's inside).
+   Both are judgment calls you make inline, once, while authoring/refining `eff_depth` and
+   `classify()` in the current session — not a separate automated per-file/per-directory AI
+   pipeline (cost/time do not scale to opening thousands of binaries or re-deriving depth per
+   directory at runtime; see Workflow steps 3 and 6).
 5. **Flag uncertainty.** Anything that lands on a generic `其他 / Other` leaf, or a category
    with no clean home, gets `status=uncertain` with a short reason for human review.
 6. **Output next to the source or on the project drive**, not a temp dir.
@@ -40,6 +49,9 @@ move files unless explicitly asked — produce a plan first.
 3. **Decide granularity — ASK when scale is large/mixed** (use AskUserQuestion):
    file-level for curated document sets (hundreds); package/folder-level for
    thousands+ / software / equipment dumps. Recommend package-level for dumps.
+   Before fixing a depth number per top-level branch, sample its actual shape with
+   `units_lib.preview_depth(src, top)` (see Core rule 4a) rather than guessing from the
+   branch name alone.
 4. **Missing categories — ASK before inventing.** If the source holds material with no home
    in the target tree (e.g. competitor equipment), propose a new top-level category, confirm,
    then create the new leaf folders in the target tree so plan targets are real leaves.
@@ -61,11 +73,15 @@ move files unless explicitly asked — produce a plan first.
 8. **Verify** (the driver prints it, or run `scripts/verify_coverage.py`): coverage
    (`covered == total`), 0 invalid leaves, 0 duplicate source units. Fix until PASS.
 9. **Build the review tool** — edit the constants at the top of
-   `scripts/build_review_html.py` (`UNITS/SRC/DST/OUT/NAME/BIG`; `SRC`+`DST` fill the export
-   header, `NAME` labels exports and namespaces the browser's saved progress, `BIG` = the
-   large-package file threshold, default 500) and run it (or import `units_lib.leaf_dirs` +
+   `scripts/build_review_html.py` (`UNITS/SRC/DST/OUT/NAME/BIG/COPY_BACKEND`; `SRC`+`DST` fill
+   the export header, `NAME` labels exports and namespaces the browser's saved progress, `BIG` =
+   the large-package file threshold, default 500) and run it (or import `units_lib.leaf_dirs` +
    fill `templates/review.html` in the driver). It fills the `__LEAVES__`/`__UNITS__`/`__META__`
-   placeholders. Single file, no deps: search, group by
+   placeholders, and — when `COPY_BACKEND` is true (default) — also copies
+   `scripts/review_server.py` next to `OUT` (skipped if that would copy onto itself), so the
+   workspace folder is self-contained: HTML + `units.json` + plan + backend, no need to reach
+   back into the skill's own `scripts/` dir. This happens on every build, including rebuilds
+   triggered by `reclassify.py`. Single file, no deps: search, group by
    source/target, filter (待确认 / 已改 / 大包>BIG / 待重分类 / 审阅状态), edit target with leaf
    autocomplete + red-border validation, mark-reviewed, per-row **需要重新分类** checkbox,
    export txt+CSV, progress in localStorage. Works standalone (double-click); the two features
@@ -88,9 +104,11 @@ move files unless explicitly asked — produce a plan first.
 
 ## Files
 - `scripts/units_lib.py` — walk, leaf discovery, unit enumeration (leaf-only, package-aware),
-  file counting, plan writer, verifier. Import this; write only `eff_depth` + `classify`.
+  depth-shape preview (`preview_depth`, to inform `eff_depth`), file counting, plan writer,
+  verifier. Import this; write only `eff_depth` + `classify`.
 - `scripts/classify_example.py` — runnable skeleton showing eff_depth + a keyword ruleset.
-- `scripts/build_review_html.py` — fills `templates/review.html` from units.json + leaf list.
+- `scripts/build_review_html.py` — fills `templates/review.html` from units.json + leaf list;
+  also copies `scripts/review_server.py` next to the output HTML (`COPY_BACKEND`, default on).
 - `scripts/verify_coverage.py` — coverage / leaf-validity / duplicate check.
 - `scripts/move_plan.py` — apply a reviewed plan: whole-unit copy/move into leaves,
   conflict-rename, leaf validation, dry-run-first + log.

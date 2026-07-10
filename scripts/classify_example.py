@@ -22,8 +22,12 @@ JSONF = "./units.json"
 FALLBACK_LEAF = ""          # e.g. "05_学习资料/其他"
 
 # ===== EDIT 2/3 — unit depth per top-level source folder (top entry = depth 1) =
-# Vendor/product/topic/competitor folders are usually depth 3; a flat category depth 2.
-# Descend deeper (e.g. per component-type or per standard-body) where useful.
+# DON'T guess this blind. Before filling in BASE, sample each branch's real shape:
+#     U.preview_depth(SRC, "华为服务器资料")   # -> {2: {...samples with has_subdir...}, 3: {...}}
+# If depth-2 dirs are mostly has_subdir=False, they're already whole packages -> depth 2.
+# If they're mostly has_subdir=True (further split into 资料/驱动/固件/... subfolders),
+# the real product sits one level deeper -> depth 3. Vendor/product/topic/competitor
+# folders are usually depth 3; a flat category depth 2.
 BASE = {}   # e.g. {"01_物料手册": 3, "02_行业装备": 3, "05_学习资料": 2}
 def eff_depth(parts):
     """返回给定路径分段（parts）所在分支应使用的“单元深度”。
@@ -33,8 +37,15 @@ def eff_depth(parts):
         一个完整的分类单元（而不是继续往下拆分）。parts 是路径按 "/" 分割后的
         列表，parts[0] 即顶层目录名。默认深度为 2（顶层目录 -> 子目录 即为单元），
         可在 BASE 字典里为特定顶层目录指定不同的深度（例如厂商/产品/主题类目录
-        通常需要深度 3：顶层 -> 厂商 -> 产品）。也可以按需在函数体内针对更细的
-        分支追加特殊规则（见下方注释示例）。
+        通常需要深度 3：顶层 -> 厂商 -> 产品）。
+
+        这个数字不该凭空拍板——写它之前应该先用 `units_lib.preview_depth(SRC, top)`
+        看一眼该分支下子目录的真实形状（各深度的目录是否已经是"没有子目录的完整
+        产品包"，还是下面还分了资料/驱动/固件等子类别），根据观察到的结构再决定
+        这一分支该设几层。如果同一个顶层分支下不同子树的形状不一样（比如某个厂商
+        的产品都是深度2，另一个厂商内部还分了子系列在深度3），可以在函数体内
+        按 `parts[1]`（甚至更深的段）分别处理，不是只能靠 BASE 按 `parts[0]`
+        查一张对全分支一视同仁的固定表（见下方 06_培训资料 的示例）。
 
     参数：
         parts (list[str]): 路径按 "/" 分割后的各段名称。
@@ -42,6 +53,7 @@ def eff_depth(parts):
         int: 该分支的单元深度。
     """
     top = parts[0]; d = BASE.get(top, 2)
+    # if top == "06_培训资料" and len(parts) > 1 and parts[1] == "Datasheet": d = 3
     return d
 
 # ===== EDIT 3/3 — classifier: ordered keyword rules, first match wins ==========
