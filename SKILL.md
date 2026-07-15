@@ -39,13 +39,28 @@ move files unless explicitly asked — produce a plan first.
 5. **Flag uncertainty.** Anything that lands on a generic `其他 / Other` leaf, or a category
    with no clean home, gets `status=uncertain` with a short reason for human review.
 6. **Output next to the source or on the project drive**, not a temp dir.
+7. **Leaf discovery must not be fooled by content already moved into the target tree.** A live
+   re-scan (`leaf_dirs`) defines a leaf as "a dir with no sub-dirs" — but once a unit has been
+   moved into a leaf by `move_plan.py` (or by hand) in a *previous* round, that leaf now has a
+   sub-dir (the moved unit), so a fresh re-scan wrongly demotes it, and — if the moved unit
+   itself has no sub-dirs — wrongly promotes the moved unit into a brand-new "leaf". Always
+   resolve leaves via `units_lib.stable_leaf_dirs(dst)`, which reads a persisted manifest
+   (`dst/.archive_classifier_leaves.json`) instead of re-deriving structure from the live,
+   possibly content-mixed tree; it self-bootstraps from a live scan only the first time a given
+   target tree is used (ideally while it's still a clean skeleton). When you deliberately create
+   a **new** real leaf folder (rule 4/Workflow step 4, or `move_plan.py`'s
+   `CREATE_MISSING_LEAVES`), register it with `units_lib.add_leaves(dst, new_leaf_path)`
+   immediately — that is the only sound way to tell "a genuine new category" apart from
+   "content that happens to look like one"; never re-derive the whole manifest from a live
+   scan once real content has been moved in.
 
 ## Workflow
 
 1. **Recon (never list every file for big sets).** Get top-level dir file counts + total;
    find where the mass concentrates; detect software/data dumps. See
    `scripts/units_lib.py:summarize`.
-2. **Discover target leaves.** `leaf_dirs(dst)` → the only valid destinations.
+2. **Discover target leaves.** `stable_leaf_dirs(dst)` → the only valid destinations (see rule 7;
+   this is a persisted, content-move-proof list, not a live re-scan).
 3. **Decide granularity — ASK when scale is large/mixed** (use AskUserQuestion):
    file-level for curated document sets (hundreds); package/folder-level for
    thousands+ / software / equipment dumps. Recommend package-level for dumps.
@@ -54,7 +69,9 @@ move files unless explicitly asked — produce a plan first.
    branch name alone.
 4. **Missing categories — ASK before inventing.** If the source holds material with no home
    in the target tree (e.g. competitor equipment), propose a new top-level category, confirm,
-   then create the new leaf folders in the target tree so plan targets are real leaves.
+   then create the new leaf folders in the target tree and immediately register them with
+   `units_lib.add_leaves(dst, *new_leaf_paths)` (rule 7) so plan targets are real, discoverable
+   leaves.
 5. **Confirm ambiguous category semantics** with the user and record them (memory), e.g.
    "产品信息资料 = the DUT products we build test benches for, not our/competitor equipment".
 6. **Classify.** Copy `scripts/classify_example.py` to a project driver `run.py`, then edit
@@ -75,8 +92,8 @@ move files unless explicitly asked — produce a plan first.
 9. **Build the review tool** — edit the constants at the top of
    `scripts/build_review_html.py` (`UNITS/SRC/DST/OUT/NAME/BIG/COPY_BACKEND`; `SRC`+`DST` fill
    the export header, `NAME` labels exports and namespaces the browser's saved progress, `BIG` =
-   the large-package file threshold, default 500) and run it (or import `units_lib.leaf_dirs` +
-   fill `templates/review.html` in the driver). It fills the `__LEAVES__`/`__UNITS__`/`__META__`
+   the large-package file threshold, default 500) and run it (or import `units_lib.stable_leaf_dirs`
+   + fill `templates/review.html` in the driver). It fills the `__LEAVES__`/`__UNITS__`/`__META__`
    placeholders, and — when `COPY_BACKEND` is true (default) — also copies
    `scripts/review_server.py` next to `OUT` (skipped if that would copy onto itself), so the
    workspace folder is self-contained: HTML + `units.json` + plan + backend, no need to reach
@@ -100,12 +117,16 @@ move files unless explicitly asked — produce a plan first.
     `scripts/move_plan.py` to apply it — it reads the reviewed `…_已审阅.txt`, and for each
     `源单元 => 目标叶子` line places the **whole unit** (package folder or loose file) into the
     leaf. Copy by default (source preserved), conflict-rename (` (2)`…, never overwrite/merge),
-    real leaves validated, and **DRY_RUN=True first** — preview + log, then flip to apply.
+    real leaves validated against `stable_leaf_dirs` (rule 7), and **DRY_RUN=True first** —
+    preview + log, then flip to apply. If `CREATE_MISSING_LEAVES=True` makes it create a leaf,
+    it auto-registers that leaf via `add_leaves` so it isn't lost on the next round.
 
 ## Files
-- `scripts/units_lib.py` — walk, leaf discovery, unit enumeration (leaf-only, package-aware),
-  depth-shape preview (`preview_depth`, to inform `eff_depth`), file counting, plan writer,
-  verifier. Import this; write only `eff_depth` + `classify`.
+- `scripts/units_lib.py` — walk, leaf discovery (`leaf_dirs` raw scan, `stable_leaf_dirs`
+  manifest-backed lookup, `add_leaves` to register genuinely new leaves — rule 7), unit
+  enumeration (leaf-only, package-aware), depth-shape preview (`preview_depth`, to inform
+  `eff_depth`), file counting, plan writer, verifier. Import this; write only `eff_depth` +
+  `classify`.
 - `scripts/classify_example.py` — runnable skeleton showing eff_depth + a keyword ruleset.
 - `scripts/build_review_html.py` — fills `templates/review.html` from units.json + leaf list;
   also copies `scripts/review_server.py` next to the output HTML (`COPY_BACKEND`, default on).
@@ -135,3 +156,9 @@ move files unless explicitly asked — produce a plan first.
 - Default output = a plan only. Apply it only when asked, via `scripts/move_plan.py`
   (`MODE="copy"`/`"move"`, `DRY_RUN=True` first): whole-unit into leaf + conflict-rename + a
   log; never per-file for dump packages.
+- The target tree gets one small hidden file: `dst/.archive_classifier_leaves.json` (the leaf
+  manifest, rule 7). It's created the first time `stable_leaf_dirs`/`verify` touches a given
+  `dst`. If a target tree already had content moved into it before this manifest existed (by
+  hand, or by an older run of this skill), the first bootstrap snapshot bakes in whatever mixed
+  state exists at that moment — review the generated JSON once in that case, or clear it and
+  re-bootstrap once you've confirmed the tree is a clean skeleton again.

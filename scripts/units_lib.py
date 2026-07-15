@@ -67,6 +67,111 @@ def leaf_dirs(dst):
     return sorted(set(out))
 
 
+MANIFEST_NAME = ".archive_classifier_leaves.json"
+
+
+def _manifest_path(dst):
+    """返回 dst（目标分类树）对应的“可信叶子清单”文件路径（藏在 dst 根目录下的隐藏文件）。"""
+    return os.path.join(dst, MANIFEST_NAME)
+
+
+def load_leaf_manifest(dst):
+    """读取 dst 下持久化保存的"可信叶子清单"（如果存在的话）。
+
+    说明：
+        清单是一份 JSON 文件（`dst/.archive_classifier_leaves.json`），内容就是一份
+        posix 相对路径的列表，代表"这些才是目标树本来的分类叶子"。它的存在是为了
+        解决一个问题：一旦有内容被移动进目标树，`leaf_dirs(dst)` 这种靠实时扫描
+        目录结构（"没有子目录 = 叶子"）来判断叶子的方式就会被污染——被移进去的
+        文件夹自己如果没有子目录，会被误判成新叶子；而它所在的原叶子目录因为
+        多了这个子目录，反而不再被判定为叶子了。清单一旦生成，就不再依赖实时
+        扫描，而是把"目标树本来的分类骨架长什么样"固定下来，跨多次分类、
+        跨工作空间、跨机器都能找到同一份清单，避免上述污染反复重现。
+
+    参数：
+        dst (str): 目标分类树的根目录路径。
+    返回：
+        list[str] | None: 清单存在时返回其内容（排序去重后的叶子路径列表）；
+            清单文件不存在时返回 None（调用方应据此触发一次性的初始化/引导）。
+    """
+    p = _manifest_path(dst)
+    if not os.path.isfile(p):
+        return None
+    return json.load(open(p, encoding="utf-8"))
+
+
+def save_leaf_manifest(dst, leaves):
+    """把叶子列表 leaves 写入 dst 下的可信叶子清单文件（排序去重后保存）。
+
+    参数：
+        dst (str): 目标分类树的根目录路径。
+        leaves (list[str]): 要保存的叶子相对路径列表（posix 风格）。
+    返回：
+        list[str]: 实际写入的内容（排序去重后）。
+    """
+    leaves = sorted(set(l.replace("\\", "/").strip("/") for l in leaves))
+    json.dump(leaves, open(_manifest_path(dst), "w", encoding="utf-8"), ensure_ascii=False, indent=0)
+    return leaves
+
+
+def stable_leaf_dirs(dst):
+    """获取"可信的"目标树叶子列表——优先用持久化清单，而不是每次都实时扫描 dst。
+
+    说明：
+        这是驱动脚本（run.py/verify_coverage.py/build_review_html.py/move_plan.py/
+        reclassify.py）应该调用的入口，取代直接调用 `leaf_dirs(dst)`：
+        - 若 dst 下已经有可信叶子清单（`load_leaf_manifest` 不为 None），直接返回它，
+          **不会**再去实时扫描 dst——这样即使目标树里已经混入了之前分类挪进去的
+          内容（文件夹），也不会被误判成新叶子，原来的叶子也不会因为多了子目录
+          而被误判成非叶子。
+        - 若 dst 下还没有清单（第一次在这棵目标树上跑分类），退化为实时扫描
+          `leaf_dirs(dst)`，并把结果保存成清单——之后每次调用都会用这份快照。
+          **重要前提**：第一次生成快照时，目标树最好还是"干净"的分类骨架
+          （还没有被移动过内容进去），这样快照才准确；如果目标树在用这个工具之前
+          就已经手动移动过一些内容进去，第一次生成的清单会把当时的混合状态
+          当成基准——如有需要可以打开生成的 JSON 文件手动核对/修正，
+          或者删掉清单文件、确认目标树恢复干净后让它重新引导生成。
+        - 目标树后续真的新增了分类类目（人工/Agent 新建的叶子目录，而不是被移动
+          进去的内容），不会被这份清单自动发现——需要显式调用 `add_leaves()`
+          登记，见该函数说明。
+
+    参数：
+        dst (str): 目标分类树的根目录路径。
+    返回：
+        list[str]: 可信的叶子相对路径列表（posix 风格）。
+    """
+    leaves = load_leaf_manifest(dst)
+    if leaves is not None:
+        return leaves
+    return save_leaf_manifest(dst, leaf_dirs(dst))
+
+
+def add_leaves(dst, *new_leaves):
+    """把明确新增的分类叶子目录登记进可信清单（用于目标树"真的"扩展了分类类目时）。
+
+    说明：
+        当源目录里出现了目标树完全没有对应位置的内容、经确认后新建了目标树的
+        叶子目录时（工作流"处理目标树里没有的类别"那一步），**必须**紧接着调用
+        本函数把新叶子路径登记进清单——否则 `stable_leaf_dirs()` 不会重新扫描
+        目标树，永远不会发现这个刚建好的新叶子。
+        本函数不会重新扫描整个 dst（不会重新触发实时结构判断），只是把明确
+        知道是"新分类类目"的路径追加进已有清单（清单不存在时，先用当前
+        `leaf_dirs(dst)` 引导一份，再追加）——这是刻意的：区分"新建的分类目录"
+        和"被移动进去的内容目录"这件事，只能靠人工/Agent 明确知道自己做了什么，
+        没法靠重新扫描目标树自动分辨（那正是这一整套机制要避免的污染）。
+
+    参数：
+        dst (str): 目标分类树的根目录路径。
+        *new_leaves (str): 一个或多个新叶子的相对路径（posix 风格）。
+    返回：
+        list[str]: 更新后的完整叶子列表（已保存）。
+    """
+    current = load_leaf_manifest(dst)
+    if current is None:
+        current = leaf_dirs(dst)
+    return save_leaf_manifest(dst, list(current) + list(new_leaves))
+
+
 def summarize(src):
     """对源目录做一次快速摸底：统计每个顶层条目下的文件总数（子目录递归计入）以及总文件数。
 
@@ -267,6 +372,10 @@ def verify(rows, src, dst):
         - uncertain：status 为 "uncertain" 的单元数量（待人工复核的数量）。
         以上列表均为空、且 coverage_ok 为 True，才算通过验收。
 
+        叶子合法性用 `stable_leaf_dirs(dst)`（可信清单）校验，而不是实时重新扫描
+        dst——避免目标树里已经存在的、之前分类挪进去的内容被误判成叶子/非叶子
+        （见 `stable_leaf_dirs` 的说明）。
+
     参数：
         rows (list[dict]): build_rows() 生成（或从 units.json 读取）的行数据。
         src (str): 源目录路径。
@@ -277,7 +386,7 @@ def verify(rows, src, dst):
     _, files = walk(src)
     # 叶子目录匹配时忽略大小写与分隔符差异（对 Windows 更友好）：
     # 目标写成 `A\B` 或 `a/b`，只要真实叶子是 `A/B`，都应校验通过。
-    leaves = {l.replace("\\", "/").lower() for l in leaf_dirs(dst)}
+    leaves = {l.replace("\\", "/").lower() for l in stable_leaf_dirs(dst)}
     key = lambda leaf: leaf.replace("\\", "/").lower()
     covered = sum(r["count"] for r in rows)
     srcs = [r["src"] for r in rows]

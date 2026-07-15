@@ -143,7 +143,9 @@ def main():
 
     # 目标树中真实叶子目录的映射：key 为“分隔符统一为 /、去除首尾 /、转小写”后的字符串，
     # value 为磁盘上真实的大小写形式，用于把计划里的目标路径匹配回真实目录。
-    leafmap = {l.replace("\\", "/").strip("/").lower(): l for l in U.leaf_dirs(dst_root)}
+    # 用可信清单（stable_leaf_dirs）而不是实时扫描 dst_root——避免目标树里已经存在的、
+    # 之前分类挪进去的内容（比如一个没有子目录的产品文件夹）被误判成一个新叶子。
+    leafmap = {l.replace("\\", "/").strip("/").lower(): l for l in U.stable_leaf_dirs(dst_root)}
 
     log, out = [], print
     def rec(s):
@@ -171,6 +173,9 @@ def main():
                 rec(f"MKLEAF  {leaf_dir}")
                 if not DRY_RUN:
                     os.makedirs(leaf_dir, exist_ok=True)
+                    # 这是刚刚真的新建的分类叶子（不是被移动进去的内容），登记进可信清单，
+                    # 这样以后的分类才会把它当成一个合法目标，而不是要等下次实时扫描才发现。
+                    U.add_leaves(dst_root, leaf_rel.replace("\\", "/").strip("/"))
             else:
                 rec(f"SKIP    invalid leaf (not in target tree): {leaf_rel}  <=  {src_rel}{note}")
                 skipped += 1

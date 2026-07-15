@@ -97,7 +97,9 @@ def main():
     ovr = {_key(k): v for k, v in OVERRIDES.items()}
     classify = load_driver(DRIVER).classify
     rows = json.load(open(UNITS, encoding="utf-8"))
-    leaves = {l.replace("\\", "/").lower() for l in U.leaf_dirs(DST)}
+    # 用可信清单而不是实时扫描 DST，避免目标树里已经存在的、之前分类挪进去的内容
+    # 被误判成合法叶子（见 units_lib.stable_leaf_dirs 的说明）。
+    leaves = {l.replace("\\", "/").lower() for l in U.stable_leaf_dirs(DST)}
 
     changed = invalid = 0
     print(f"# reclassify {len(queued)} queued unit(s) from {os.path.basename(queue_path)}\n")

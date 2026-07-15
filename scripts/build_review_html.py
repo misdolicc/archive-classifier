@@ -61,7 +61,8 @@ def main():
         - name 留空时，自动取 src 目录名作为导出文件名前缀 / localStorage 命名空间。
         - 核心步骤：
             1. 读取 units.json（分类结果行数据）；
-            2. 用 units_lib.leaf_dirs(dst) 得到目标树里所有合法的叶子目录；
+            2. 用 units_lib.stable_leaf_dirs(dst) 得到目标树里所有合法的叶子目录
+               （走可信清单，不受目标树里已有的、之前分类挪进去的内容干扰）；
             3. 组装 meta 信息（name/srcRoot/dstRoot/big，big 为“大包”文件数阈值）；
             4. 读取 templates/review.html 模板，把 __LEAVES__ / __UNITS__ / __META__
                三个占位符替换为对应的 JSON 数据，得到一个独立、无外部依赖的单文件 HTML；
@@ -75,7 +76,7 @@ def main():
     name = (a[4] if len(a) >= 5 else NAME) or os.path.basename(os.path.normpath(src)) or "plan"
     big = int(a[5]) if len(a) >= 6 else BIG
     units = json.load(open(units_path, encoding="utf-8"))
-    leaves = U.leaf_dirs(dst)
+    leaves = U.stable_leaf_dirs(dst)
     meta = {"name": name, "srcRoot": src, "dstRoot": dst, "big": big}
     tpl = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
                             "templates", "review.html"), encoding="utf-8").read()
