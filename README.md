@@ -1,10 +1,15 @@
-# Archive Classifier · 归档分类器
+# Archive Classifier
 
-把一个杂乱的**源文件夹**（几百到几万个文件的资料堆/软件转储）分类归档进一个**已存在的目标分类树**，
-产出一份**可人工审阅的移动计划**，审阅通过后再执行真正的复制/移动。全程默认**只生成计划、不真的动文件**。
+把一个杂乱的**源文件夹**分类归档进一个**已存在的目标分类树**，
+产出一份**可人工审阅的移动计划**，审阅通过后再执行真正的复制/移动。
 
-这是一个 [Claude Code Skill](./SKILL.md)：`SKILL.md` 是给 Claude 看的、精简的操作规程；本 `README.md`
-是给人看的，把同一套流程展开讲清楚每一步在做什么、为什么这么设计、遇到问题怎么排查。
+安装方式：将此段提示词发给您的Agent：
+```
+请前往 https://github.com/misdolicc/archive-classifier，为你自己安装并配置该 Skill。
+```
+这是一个 [Agent Skill](./SKILL.md)：`SKILL.md` 是给 Agent（例如Codex，Claudecode，Opencode，TRAE等等） 看的、精简的操作规程；
+
+本 `README.md` 是给人看的，把同一套流程展开讲清楚每一步在做什么、为什么这么设计、遇到问题怎么排查。
 
 ---
 
