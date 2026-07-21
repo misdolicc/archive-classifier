@@ -1,13 +1,28 @@
 # Archive Classifier
 
-把一个杂乱的**源文件夹**分类归档进一个**已存在的目标分类树**，
-产出一份**可人工审阅的移动计划**，审阅通过后再执行真正的复制/移动。
+<p align="center">
+  <img src="./head-cn.png" alt="Archive Classifier 工作流程：杂乱文件、学习规则、自动分类" width="100%">
+</p>
 
-安装方式：将此段提示词发给您的Agent：
+<p align="center">
+  <strong>简体中文</strong> · <a href="./README_EN.md">English</a>
+</p>
+
+为充分发挥顶级模型的理解、推理与归纳能力，本 Skill 采用“模型设计规则，代码批量执行”的架构：模型先作为一次性的“分类规则设计师”，观察目标分类树与待分类数据，为当前项目生成定制化的分组与分类规则；规则确定后，再由普通 Python 代码高速、稳定、可重复地完成批量分类。
+
+如果您想进一步了解它的详细工作原理，请将以下 Prompt 发给您的 Agent：
+
+```
+请阅读当前 archive-classifier 仓库，用通俗易懂的语言分步讲解其底层工作原理，重点说明 Agent 如何分析目标分类树与待分类数据、生成定制化的分组与分类规则，以及 Python 代码如何批量执行规则并形成人工审阅闭环。
+```
+
+如需安装，请将以下 Prompt 发给您的 Agent：
+
 ```
 请前往 https://github.com/misdolicc/archive-classifier，为你自己安装并配置该 Skill。
 ```
-这是一个 [Agent Skill](./SKILL.md)：`SKILL.md` 是给 Agent（例如Codex，Claudecode，Opencode，TRAE等等） 看的、精简的操作规程；
+
+这是一个 [Agent Skill](./SKILL.md)。`SKILL.md` 是供 Agent（如 Codex、Claude Code、OpenCode、TRAE 等）阅读的精简操作规程。
 
 本 `README.md` 是给人看的，把同一套流程展开讲清楚每一步在做什么、为什么这么设计、遇到问题怎么排查。
 
@@ -69,6 +84,9 @@
 archive-classifier/
 ├── SKILL.md                     # 给Agent看的操作规程
 ├── README.md                    # 给人看的全流程介绍
+├── README_EN.md                 # 英文版完整说明
+├── head-cn.png                  # 中文版头图
+├── head-en.png                  # 英文版头图
 ├── scripts/
 │   ├── units_lib.py             # 通用工具库：遍历/叶子发现（含可信清单 stable_leaf_dirs）/单元枚举/深度形状预览/计数/写计划/验收
 │   ├── classify_example.py      # 可运行的分类驱动骨架（复制它改造成 run.py）
